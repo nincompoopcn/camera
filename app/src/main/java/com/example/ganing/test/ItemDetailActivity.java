@@ -5,9 +5,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 
 import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
@@ -42,6 +45,8 @@ import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.support.v7.app.AppCompatActivity;
@@ -87,6 +92,9 @@ public class ItemDetailActivity extends AppCompatActivity {
     private Size mPreviewSize; /**The {@link android.util.Size} of camera preview.*/
     private boolean mFlashSupported;
     private String mCameraId;
+    private CameraDrawingSurface  mDrawingView;
+
+
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
@@ -129,6 +137,7 @@ public class ItemDetailActivity extends AppCompatActivity {
     }
 
     private void lockFocus() {
+        Log.e("gang","takePicture lockFocus");
         try {
             // This is how to tell the camera to lock focus.
             mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,
@@ -148,7 +157,7 @@ public class ItemDetailActivity extends AppCompatActivity {
                 @Override
                 public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
                                                TotalCaptureResult result) {
-//            Log.d("linc","mCaptureSessionCaptureCallback, onCaptureCompleted");
+                    Log.e("gang","mCaptureCallback onCaptureCompleted");
                     mCaptureSession = session;
                     process(result);
                 }
@@ -156,7 +165,7 @@ public class ItemDetailActivity extends AppCompatActivity {
                 @Override
                 public void onCaptureProgressed(CameraCaptureSession session, CaptureRequest request,
                                                 CaptureResult partialResult) {
-                    Log.d("linc","mCaptureCallback, onCaptureProgressed");
+                    Log.e("gang","mCaptureCallback onCaptureProgressed");
                     mCaptureSession = session;
                     process(partialResult);
                 }
@@ -164,17 +173,21 @@ public class ItemDetailActivity extends AppCompatActivity {
                 private void process(CaptureResult result) {
                     switch (mState) {
                         case STATE_PREVIEW: {
-                            // We have nothing to do when the camera preview is working normally.
+                            Log.e("gang","mCaptureCallback process STATE_PREVIEW");
                             break;
                         }
                         case STATE_WAITING_LOCK: {
+
                             Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
-                            if (afState == null) {
+                            if (afState == null || afState == 0) {
+                                Log.e("gang","mCaptureCallback process STATE_WAITING_LOCK afState"+afState);
                                 captureStillPicture();
                             } else if (CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED == afState ||
                                     CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED == afState) {
+
                                 // CONTROL_AE_STATE can be null on some devices
                                 Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                                Log.e("gang","mCaptureCallback process STATE_WAITING_LOCK afstate LOCKED unlock aestate "+aeState);
                                 if (aeState == null ||
                                         aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
                                     mState = STATE_PICTURE_TAKEN;
@@ -186,6 +199,7 @@ public class ItemDetailActivity extends AppCompatActivity {
                             break;
                         }
                         case STATE_WAITING_PRECAPTURE: {
+                            Log.e("gang","mCaptureCallback process STATE_WAITING_PRECAPTURE ");
                             // CONTROL_AE_STATE can be null on some devices
                             Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                             if (aeState == null ||
@@ -196,6 +210,7 @@ public class ItemDetailActivity extends AppCompatActivity {
                             break;
                         }
                         case STATE_WAITING_NON_PRECAPTURE: {
+                            Log.e("gang","mCaptureCallback process STATE_WAITING_NON_PRECAPTURE ");
                             // CONTROL_AE_STATE can be null on some devices
                             Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
                             if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
@@ -215,7 +230,7 @@ public class ItemDetailActivity extends AppCompatActivity {
 
                 @Override
                 public void onConfigured(CameraCaptureSession session) {
-                    Log.d("gang","mSessionPreviewStateCallback onConfigured");
+
                     mCaptureSession = session;
                     try {
                         mPreviewRequestBuilder.set(CONTROL_AF_MODE, CONTROL_AF_MODE_CONTINUOUS_PICTURE);
@@ -251,9 +266,12 @@ public class ItemDetailActivity extends AppCompatActivity {
             byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
             FileOutputStream output = null;
+            if (mFile == null)
+                Log.e("gang","ImageSaver file null");
             try {
                 output = new FileOutputStream(mFile);
                 output.write(bytes);
+                Log.e("gang","ImageSaver file written");
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -276,23 +294,29 @@ public class ItemDetailActivity extends AppCompatActivity {
     {
         @Override
         public void onImageAvailable(ImageReader reader) {
+            Log.e("gang","OnImageAvailableListener");
             mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
         }
     };
 
-    private void createCameraCaptureSession() throws CameraAccessException {
-        Log.e("gang","createCameraCaptureSession");
-        SurfaceTexture texture = mTextureView.getSurfaceTexture();
-        assert texture != null;
-        texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
-        Surface surface = new Surface(texture);
+    private void createCameraPreviewSession() throws CameraAccessException {
+        Log.e("gang","createCameraPreviewSession");
+        try {
+            SurfaceTexture texture = mTextureView.getSurfaceTexture();
+            assert texture != null;
+            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+            Surface surface = new Surface(texture);
 
-        mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        mPreviewRequestBuilder.addTarget(surface);
-        mState = STATE_PREVIEW;
-        mCameraDevice.createCaptureSession(
-                Arrays.asList(surface, mImageReader.getSurface()),
-                mSessionPreviewStateCallback, mBackgroundHandler);
+            mPreviewRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            mPreviewRequestBuilder.addTarget(surface);
+            mState = STATE_PREVIEW;
+            mCameraDevice.createCaptureSession(
+                    Arrays.asList(surface, mImageReader.getSurface()),
+                    mSessionPreviewStateCallback, mBackgroundHandler);
+        } catch (CameraAccessException e) {
+            Log.e("gang","createCameraPreviewSession failed");
+            e.printStackTrace();
+        }
     }
 
     private int getOrientation(int rotation) {
@@ -330,21 +354,21 @@ public class ItemDetailActivity extends AppCompatActivity {
 
     private void captureStillPicture() {
         try {
-
             if (null == mCameraDevice) {
+                Log.e("gang", "captureStillPicture mCameraDevice null");
                 return;
             }
-            // This is the CaptureRequest.Builder that we use to take a picture.
+            Log.e("gang", "captureStillPicture");
+
             final CaptureRequest.Builder captureBuilder =
                     mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             captureBuilder.addTarget(mImageReader.getSurface());
 
-            // Use the same AE and AF modes as the preview.
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE,
                     CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             setAutoFlash(captureBuilder);
 
-            // Orientation
+
             int rotation = getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
 
@@ -356,7 +380,6 @@ public class ItemDetailActivity extends AppCompatActivity {
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
 
-                    Log.e("gang", mFile.toString());
                     unlockFocus();
                 }
             };
@@ -365,6 +388,7 @@ public class ItemDetailActivity extends AppCompatActivity {
             mCaptureSession.abortCaptures();
             mCaptureSession.capture(captureBuilder.build(), CaptureCallback, null);
         } catch (CameraAccessException e) {
+            Log.e("gang", "captureStillPicture failed");
             e.printStackTrace();
         }
     }
@@ -377,7 +401,7 @@ public class ItemDetailActivity extends AppCompatActivity {
             mCameraDevice = camera;
             Toast.makeText(getApplicationContext(), "Camera Opened!", Toast.LENGTH_SHORT).show();
             try {
-                createCameraCaptureSession();
+                createCameraPreviewSession();
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
@@ -682,14 +706,22 @@ public class ItemDetailActivity extends AppCompatActivity {
     };
 
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_item_detail);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.detail_toolbar);
-        setSupportActionBar(toolbar);
+        ///Toolbar toolbar = (Toolbar) findViewById(R.id.detail_toolbar);
+        //setSupportActionBar(toolbar);
 
         mTextureView = (AutoFitTextureView) findViewById(R.id.texture);
+
+        mDrawingView = (CameraDrawingSurface)findViewById(R.id.CameraDrawingSurface);
+        mDrawingView.setZOrderMediaOverlay(true);
+        //mDrawingView.setBackgroundColor(Color.TRANSPARENT);
+        mDrawingView.setAlpha(0);
+        SurfaceHolder holder = mDrawingView.getHolder();
+        holder.setFormat(PixelFormat.TRANSPARENT);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -707,6 +739,8 @@ public class ItemDetailActivity extends AppCompatActivity {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
+        mFile = new File(getExternalFilesDir(null), "pic.jpg");
+
         // savedInstanceState is non-null when there is fragment state
         // saved from previous configurations of this activity
         // (e.g. when rotating the screen from portrait to landscape).
@@ -719,14 +753,14 @@ public class ItemDetailActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             // Create the detail fragment and add it to the activity
             // using a fragment transaction.
-            Bundle arguments = new Bundle();
+            /*Bundle arguments = new Bundle();
             arguments.putString(ItemDetailFragment.ARG_ITEM_ID,
                     getIntent().getStringExtra(ItemDetailFragment.ARG_ITEM_ID));
             ItemDetailFragment fragment = new ItemDetailFragment();
             fragment.setArguments(arguments);
             getSupportFragmentManager().beginTransaction()
                     .add(R.id.item_detail_container, fragment)
-                    .commit();
+                    .commit();*/
         }
     }
 
