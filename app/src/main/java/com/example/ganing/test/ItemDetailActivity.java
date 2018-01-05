@@ -717,11 +717,11 @@ public class ItemDetailActivity extends AppCompatActivity {
         mTextureView = (AutoFitTextureView) findViewById(R.id.texture);
 
         mDrawingView = (CameraDrawingSurface)findViewById(R.id.CameraDrawingSurface);
-        mDrawingView.setZOrderMediaOverlay(true);
+       // mDrawingView.setZOrderMediaOverlay(true);
         //mDrawingView.setBackgroundColor(Color.TRANSPARENT);
-        mDrawingView.setAlpha(0);
-        SurfaceHolder holder = mDrawingView.getHolder();
-        holder.setFormat(PixelFormat.TRANSPARENT);
+        //mDrawingView.setAlpha(0);
+        //SurfaceHolder holder = mDrawingView.getHolder();
+        //holder.setFormat(PixelFormat.TRANSPARENT);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {

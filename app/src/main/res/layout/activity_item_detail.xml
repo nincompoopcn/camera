@@ -12,7 +12,9 @@
         android:layout_gravity="center_vertical|start"
         android:layout_margin="@dimen/fab_margin"
      />
-
+    <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
     <com.example.ganing.test.AutoFitTextureView
         android:id="@+id/texture"
         android:layout_width="wrap_content"
@@ -22,11 +24,10 @@
 
     <com.example.ganing.test.CameraDrawingSurface
         android:id="@+id/CameraDrawingSurface"
-        android:alpha="0"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_weight=".5"
         />
-
+    </FrameLayout>
 </LinearLayout>
 
